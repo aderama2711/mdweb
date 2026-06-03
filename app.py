@@ -113,7 +113,7 @@ def api_convert():
         return jsonify({'error': 'No files uploaded'}), 400
 
     use_ocr = request.form.get('use_ocr', 'false').lower() == 'true'
-    ollama_host = request.form.get('ollama_host', 'http://localhost:11434').strip()
+    ollama_host = request.form.get('ollama_host', 'http://192.168.1.1:30068').strip()
     ollama_model = request.form.get('ollama_model', 'llava').strip()
 
     file_data_list = []
