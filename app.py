@@ -243,7 +243,7 @@ def api_results(job_id):
 @app.route('/api/ollama/models')
 def api_ollama_models():
     """Probe local Ollama for available vision-capable models."""
-    host = request.args.get('host', 'http://localhost:11434').strip()
+    host = request.args.get('host', 'http://192.168.1.1:30068').strip()
     try:
         import urllib.request
         url = host.rstrip('/') + '/api/tags'
