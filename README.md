@@ -24,7 +24,7 @@ JPG/PNG/GIF/BMP/WEBP, MP3/WAV/OGG/M4A, ZIP, EPUB, IPYNB, MSG
 
 ```bash
 git clone https://github.com/aderama2711/mdweb
-cd markitdown-web
+cd mdweb
 
 # Buat virtual environment (disarankan)
 python -m venv .venv
