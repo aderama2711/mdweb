@@ -23,7 +23,7 @@ JPG/PNG/GIF/BMP/WEBP, MP3/WAV/OGG/M4A, ZIP, EPUB, IPYNB, MSG
 ### 1. Clone & install dependencies
 
 ```bash
-git clone <repo>
+git clone https://github.com/aderama2711/mdweb
 cd markitdown-web
 
 # Buat virtual environment (disarankan)
