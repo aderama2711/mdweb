@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MarkItDown — File to Markdown Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ──────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #0d0f11;
+    --surface:    #14181c;
+    --surface2:   #1c2128;
+    --border:     #2a3140;
+    --border2:    #3d4d5c;
+    --accent:     #4af626;
+    --accent2:    #00c9a7;
+    --warn:       #f6a623;
+    --danger:     #ff4d4d;
+    --text:       #d0dce8;
+    --text-dim:   #6b7d8e;
+    --text-bright:#f0f6ff;
+    --mono:       'IBM Plex Mono', monospace;
+    --sans:       'IBM Plex Sans', sans-serif;
+    --radius:     6px;
+    --transition: 180ms ease;
+  }
+
+  html { font-size: 15px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ──────────────────────────────────────────────*/
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+  }
+  .logo-mark {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo-mark span { color: var(--text-dim); }
+  header p {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    border-left: 1px solid var(--border);
+    padding-left: 16px;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────*/
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 32px;
+    gap: 24px;
+  }
+
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; padding: 16px; }
+  }
+
+  /* ── Panel ───────────────────────────────────────────────*/
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .panel-body { padding: 20px; }
+
+  /* ── Drop Zone ───────────────────────────────────────────*/
+  #drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    position: relative;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(74, 246, 38, 0.04);
+  }
+  #drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon {
+    font-size: 2.4rem;
+    margin-bottom: 12px;
+    display: block;
+    filter: grayscale(0.4);
+  }
+  .drop-text {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .drop-text strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .drop-formats {
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  /* ── File List ───────────────────────────────────────────*/
+  #file-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+  }
+  .file-item .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .file-item .file-size {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .file-item .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: color var(--transition), background var(--transition);
+    flex-shrink: 0;
+  }
+  .file-item .remove-btn:hover { color: var(--danger); background: rgba(255,77,77,.1); }
+  .file-ext-badge {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--border);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* ── OCR Settings ────────────────────────────────────────*/
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .toggle-label {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text);
+    flex: 1;
+  }
+  .toggle-label small {
+    display: block;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    margin-top: 2px;
+  }
+  /* Toggle switch */
+  .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--border2);
+    border-radius: 22px;
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 3px; top: 3px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: transform var(--transition), background var(--transition);
+  }
+  .toggle-switch input:checked + .toggle-slider { background: rgba(74,246,38,.25); border: 1px solid var(--accent); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--accent); }
+
+  .ocr-settings {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ocr-settings.visible { display: flex; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .form-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color var(--transition);
+    width: 100%;
+  }
+  .form-input:focus { border-color: var(--accent2); }
+
+  .model-row { display: flex; gap: 8px; }
+  .model-row .form-input { flex: 1; }
+  .probe-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .probe-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .ocr-notice {
+    font-size: 0.72rem;
+    font-family: var(--mono);
+    color: var(--warn);
+    background: rgba(246,166,35,.07);
+    border: 1px solid rgba(246,166,35,.2);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    line-height: 1.5;
+  }
+
+  /* ── Convert Button ──────────────────────────────────────*/
+  #convert-btn {
+    margin-top: 20px;
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: #0d0f11;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--transition), transform var(--transition);
+  }
+  #convert-btn:hover:not(:disabled) { opacity: 0.88; }
+  #convert-btn:active:not(:disabled) { transform: scale(0.99); }
+  #convert-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Progress ────────────────────────────────────────────*/
+  #progress-section {
+    display: none;
+    margin-top: 16px;
+  }
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* ── Results Panel ───────────────────────────────────────*/
+  #result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .result-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color var(--transition);
+  }
+  .result-item:hover { border-color: var(--border2); }
+  .result-item.error { border-color: rgba(255,77,77,.3); }
+  .result-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .result-status {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .result-status.ok   { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .result-status.fail { background: var(--danger); }
+  .result-fname {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-bright);
+  }
+  .result-meta {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .result-chevron {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    transition: transform var(--transition);
+    flex-shrink: 0;
+  }
+  .result-item.open .result-chevron { transform: rotate(90deg); }
+  .result-preview {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+  .result-item.open .result-preview { display: block; }
+  .preview-content {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+  .result-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .action-btn {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .action-btn.primary { border-color: var(--accent); color: var(--accent); }
+  .action-btn.primary:hover { background: rgba(74,246,38,.08); }
+
+  /* ── Download All ────────────────────────────────────────*/
+  #download-all-btn {
+    display: none;
+    width: 100%;
+    margin-top: 16px;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--accent2);
+    border-radius: var(--radius);
+    color: var(--accent2);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+  #download-all-btn:hover { background: rgba(0,201,167,.08); }
+
+  /* ── Empty state ─────────────────────────────────────────*/
+  .empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+  .empty-state .empty-icon { font-size: 2rem; margin-bottom: 10px; display: block; opacity: .4; }
+
+  /* ── Error toast ─────────────────────────────────────────*/
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    padding: 12px 18px;
+    border-radius: var(--radius);
+    max-width: 340px;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+    z-index: 999;
+    line-height: 1.5;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Models dropdown ─────────────────────────────────────*/
+  .model-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    margin-top: 4px;
+    z-index: 100;
+    overflow: hidden;
+  }
+  .model-suggestion {
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text);
+    transition: background var(--transition);
+  }
+  .model-suggestion:hover { background: var(--border); }
+  .model-wrap { position: relative; flex: 1; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">mark<span>//</span>down</div>
+  <p>powered by microsoft/markitdown &nbsp;·&nbsp; local conversion</p>
+</header>
+
+<main>
+  <!-- LEFT: Input panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Input Files</span>
+      <span class="panel-title" id="file-count-badge" style="color:var(--accent);display:none;">0 files</span>
+    </div>
+    <div class="panel-body">
+
+      <!-- Drop zone -->
+      <div id="drop-zone">
+        <input type="file" id="file-input" multiple
+          accept=".pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls,.html,.htm,.csv,.json,.xml,.txt,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp3,.wav,.ogg,.m4a,.zip,.epub,.ipynb,.msg">
+        <span class="drop-icon">📂</span>
+        <div class="drop-text">
+          <strong>Click to browse</strong> or drag &amp; drop files here<br>
+          Multiple files supported
+        </div>
+        <div class="drop-formats">PDF · DOCX · PPTX · XLSX · HTML · CSV · JSON · IMG · MP3 · ZIP · EPUB · ...</div>
+      </div>
+
+      <!-- File list -->
+      <div id="file-list"></div>
+
+      <!-- OCR Settings -->
+      <div style="margin-top:20px;">
+        <div class="toggle-row">
+          <div class="toggle-label">
+            OCR via Ollama
+            <small>Uses vision model to extract text from images in documents</small>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="ocr-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="ocr-settings" id="ocr-settings">
+          <div class="ocr-notice">
+            ⚠ Requires Ollama running locally with a vision model (e.g. <code>llava</code>, <code>moondream</code>, <code>minicpm-v</code>).
+            Install via: <code>ollama pull llava</code>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ollama-host">Ollama Host</label>
+            <input class="form-input" id="ollama-host" type="text"
+              value="http://localhost:11434" placeholder="http://localhost:11434">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ollama-model">Vision Model</label>
+            <div class="model-row">
+              <div class="model-wrap">
+                <input class="form-input" id="ollama-model" type="text"
+                  value="llava" placeholder="llava" autocomplete="off">
+                <div class="model-suggestions" id="model-suggestions" style="display:none;"></div>
+              </div>
+              <button class="probe-btn" id="probe-btn" type="button">Detect Models</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Convert -->
+      <button id="convert-btn" disabled>Convert to Markdown</button>
+
+      <!-- Progress -->
+      <div id="progress-section">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">Processing…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Output panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Results</span>
+      <span class="panel-title" id="result-count" style="display:none;"></span>
+    </div>
+    <div class="panel-body">
+      <div id="empty-state" class="empty-state">
+        <span class="empty-icon">◻</span>
+        Converted files will appear here
+      </div>
+      <div id="result-list"></div>
+      <button id="download-all-btn">⬇ Download All as ZIP</button>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+const state = {
+  files: [],       // File objects
+  jobId: null,
+  polling: null,
+};
+
+// ── DOM refs ───────────────────────────────────────────────
+const dropZone       = document.getElementById('drop-zone');
+const fileInput      = document.getElementById('file-input');
+const fileList       = document.getElementById('file-list');
+const fileCountBadge = document.getElementById('file-count-badge');
+const convertBtn     = document.getElementById('convert-btn');
+const progressSec    = document.getElementById('progress-section');
+const progressFill   = document.getElementById('progress-fill');
+const progressLabel  = document.getElementById('progress-label');
+const resultList     = document.getElementById('result-list');
+const emptyState     = document.getElementById('empty-state');
+const downloadAllBtn = document.getElementById('download-all-btn');
+const ocrToggle      = document.getElementById('ocr-toggle');
+const ocrSettings    = document.getElementById('ocr-settings');
+const ollamaHost     = document.getElementById('ollama-host');
+const ollamaModel    = document.getElementById('ollama-model');
+const probeBtn       = document.getElementById('probe-btn');
+const modelSugg      = document.getElementById('model-suggestions');
+const resultCount    = document.getElementById('result-count');
+
+// ── Helpers ────────────────────────────────────────────────
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function showToast(msg, duration=4000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function getExt(name) {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '?';
+}
+
+// ── File management ────────────────────────────────────────
+function addFiles(newFiles) {
+  for (const f of newFiles) {
+    if (!state.files.find(x => x.name === f.name && x.size === f.size)) {
+      state.files.push(f);
+    }
+  }
+  renderFileList();
+}
+
+function removeFile(idx) {
+  state.files.splice(idx, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  fileList.innerHTML = '';
+  const n = state.files.length;
+  fileCountBadge.textContent = n + ' file' + (n===1?'':'s');
+  fileCountBadge.style.display = n ? '' : 'none';
+  convertBtn.disabled = n === 0;
+
+  state.files.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML = `
+      <span class="file-ext-badge">${getExt(f.name)}</span>
+      <span class="file-name" title="${f.name}">${f.name}</span>
+      <span class="file-size">${fmtSize(f.size)}</span>
+      <button class="remove-btn" title="Remove" data-i="${i}">✕</button>
+    `;
+    fileList.appendChild(div);
+  });
+
+  fileList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeFile(parseInt(btn.dataset.i));
+    });
+  });
+}
+
+// ── Drag & drop ────────────────────────────────────────────
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => {
+  addFiles([...fileInput.files]);
+  fileInput.value = '';
+});
+
+// ── OCR toggle ─────────────────────────────────────────────
+ocrToggle.addEventListener('change', () => {
+  ocrSettings.classList.toggle('visible', ocrToggle.checked);
+});
+
+// ── Probe Ollama models ────────────────────────────────────
+probeBtn.addEventListener('click', async () => {
+  probeBtn.textContent = '…';
+  probeBtn.disabled = true;
+  try {
+    const host = encodeURIComponent(ollamaHost.value.trim());
+    const res = await fetch(`/api/ollama/models?host=${host}`);
+    const data = await res.json();
+    if (data.ok && data.models.length) {
+      modelSugg.style.display = '';
+      modelSugg.innerHTML = data.models.map(m =>
+        `<div class="model-suggestion" data-m="${m}">${m}</div>`
+      ).join('');
+      modelSugg.querySelectorAll('.model-suggestion').forEach(el => {
+        el.addEventListener('click', () => {
+          ollamaModel.value = el.dataset.m;
+          modelSugg.style.display = 'none';
+        });
+      });
+    } else {
+      showToast('Could not reach Ollama. Is it running at that host?');
+    }
+  } catch {
+    showToast('Error probing Ollama.');
+  } finally {
+    probeBtn.textContent = 'Detect Models';
+    probeBtn.disabled = false;
+  }
+});
+document.addEventListener('click', e => {
+  if (!modelSugg.contains(e.target) && e.target !== ollamaModel) modelSugg.style.display = 'none';
+});
+
+// ── Conversion ────────────────────────────────────────────
+convertBtn.addEventListener('click', startConversion);
+
+async function startConversion() {
+  if (!state.files.length) return;
+
+  // Reset results UI
+  resultList.innerHTML = '';
+  emptyState.style.display = '';
+  downloadAllBtn.style.display = 'none';
+  resultCount.style.display = 'none';
+
+  convertBtn.disabled = true;
+  progressSec.style.display = '';
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Uploading files…';
+
+  const fd = new FormData();
+  state.files.forEach(f => fd.append('files', f));
+  fd.append('use_ocr', ocrToggle.checked ? 'true' : 'false');
+  fd.append('ollama_host', ollamaHost.value.trim());
+  fd.append('ollama_model', ollamaModel.value.trim());
+
+  let jobId;
+  try {
+    const res = await fetch('/api/convert', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Upload failed'); resetUI(); return; }
+    jobId = data.job_id;
+    state.jobId = jobId;
+  } catch(e) {
+    showToast('Network error during upload.');
+    resetUI(); return;
+  }
+
+  progressLabel.textContent = 'Starting conversion…';
+  pollJob(jobId);
+}
+
+function pollJob(jobId) {
+  if (state.polling) clearInterval(state.polling);
+  state.polling = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/status/${jobId}`);
+      const data = await res.json();
+      if (!res.ok) { clearInterval(state.polling); showToast(data.error); resetUI(); return; }
+
+      progressFill.style.width = data.progress + '%';
+      if (data.current_file) {
+        progressLabel.textContent = `Converting: ${data.current_file}`;
+      }
+
+      if (data.status === 'done') {
+        clearInterval(state.polling);
+        progressFill.style.width = '100%';
+        progressLabel.textContent = `Done — ${data.file_count} file(s) converted.`;
+        loadResults(jobId);
+        convertBtn.disabled = false;
+      } else if (data.status === 'error') {
+        clearInterval(state.polling);
+        showToast('Conversion error: ' + (data.error || 'unknown'));
+        resetUI();
+      }
+    } catch { /* retry next tick */ }
+  }, 600);
+}
+
+async function loadResults(jobId) {
+  const res = await fetch(`/api/results/${jobId}`);
+  const data = await res.json();
+  const files = data.files || [];
+
+  emptyState.style.display = 'none';
+  resultList.innerHTML = '';
+
+  const ok = files.filter(f => f.ok).length;
+  const fail = files.length - ok;
+  resultCount.textContent = `${ok} ok${fail ? ' · ' + fail + ' failed' : ''}`;
+  resultCount.style.display = '';
+
+  files.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'result-item' + (f.ok ? '' : ' error');
+    item.dataset.index = f.index;
+    item.dataset.jobId = jobId;
+
+    const sizeStr = f.ok ? fmtSize(f.size) : 'failed';
+    item.innerHTML = `
+      <div class="result-header">
+        <span class="result-status ${f.ok ? 'ok' : 'fail'}"></span>
+        <span class="result-fname" title="${f.filename}">${f.filename}</span>
+        <span class="result-meta">${sizeStr}</span>
+        <span class="result-chevron">▶</span>
+      </div>
+      <div class="result-preview">
+        <div class="preview-content">${f.ok ? 'Loading preview…' : (f.error||'Conversion failed')}</div>
+        ${f.ok ? `<div class="result-actions">
+          <button class="action-btn primary dl-single-btn">⬇ Download .md</button>
+          <button class="action-btn copy-btn">⎘ Copy</button>
+        </div>` : ''}
+      </div>
+    `;
+
+    const header = item.querySelector('.result-header');
+    const preview = item.querySelector('.result-preview');
+    const previewContent = item.querySelector('.preview-content');
+    let loaded = false;
+
+    header.addEventListener('click', async () => {
+      item.classList.toggle('open');
+      if (item.classList.contains('open') && !loaded && f.ok) {
+        loaded = true;
+        const r = await fetch(`/api/preview/${jobId}/${f.index}`);
+        const d = await r.json();
+        previewContent.textContent = d.content.slice(0, 4000) + (d.content.length > 4000 ? '\n\n[… truncated …]' : '');
+      }
+    });
+
+    if (f.ok) {
+      item.querySelector('.copy-btn').addEventListener('click', async e => {
+        e.stopPropagation();
+        const r = await fetch(`/api/preview/${jobId}/${f.index}`);
+        const d = await r.json();
+        await navigator.clipboard.writeText(d.content);
+        const btn = e.currentTarget;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => btn.textContent = '⎘ Copy', 1800);
+      });
+    }
+
+    resultList.appendChild(item);
+  });
+
+  if (ok > 1) downloadAllBtn.style.display = '';
+  downloadAllBtn.onclick = () => window.location.href = `/api/download/${jobId}`;
+}
+
+async function downloadSingle(jobId, fileIndex, filename) {
+  // Fetch preview content and trigger download
+  const r = await fetch(`/api/preview/${jobId}/${fileIndex}`);
+  const d = await r.json();
+  const blob = new Blob([d.content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Patch per-file download button handler above (fix: override the location.href)
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('dl-single-btn')) {
+    const item = e.target.closest('.result-item');
+    if (item) {
+      e.stopPropagation();
+      const idx = parseInt(item.dataset.index);
+      const jobId = item.dataset.jobId;
+      const fname = item.querySelector('.result-fname').title;
+      downloadSingle(jobId, idx, fname);
+    }
+  }
+}, true);
+
+function resetUI() {
+  convertBtn.disabled = state.files.length === 0;
+  progressSec.style.display = 'none';
+}
+</script>
+</body>
+</html>
