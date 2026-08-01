@@ -23,8 +23,8 @@ JPG/PNG/GIF/BMP/WEBP, MP3/WAV/OGG/M4A, ZIP, EPUB, IPYNB, MSG
 ### 1. Clone & install dependencies
 
 ```bash
-git clone https://github.com/aderama2711/mdweb
-cd mdweb
+git clone <repo>
+cd markitdown-web
 
 # Buat virtual environment (disarankan)
 python -m venv .venv
@@ -62,11 +62,33 @@ ollama pull minicpm-v
 
 ### Aktifkan di UI
 
+Host Ollama di-set lewat environment variable `OLLAMA_HOST`, bukan diketik manual di browser:
+
+```bash
+export OLLAMA_HOST=http://localhost:11434
+python app.py
+```
+
+**Kalau web ini jalan di container dan Ollama di container lain**, isi dengan hostname service Docker-nya:
+
+```bash
+# docker-compose.yml
+environment:
+  - OLLAMA_HOST=http://ollama:11434   # nama service, bukan IP host
+```
+
+Atau via `docker run`:
+
+```bash
+docker run -e OLLAMA_HOST=http://ollama:11434 --network mdweb ... markitdown-web
+```
+
+Lalu di UI:
+
 1. Klik toggle **"OCR via Ollama"**
-2. Isi host (default: `http://localhost:11434`)
-3. Klik **"Detect Models"** untuk auto-detect model yang tersedia
-4. Pilih model dari list atau ketik manual
-5. Upload file dan klik **Convert**
+2. Klik **"Detect Models"** — Flask akan proxy request ke `OLLAMA_HOST`, hasil model muncul di dropdown
+3. Pilih model
+4. Upload file dan klik **Convert**
 
 > **Catatan**: OCR hanya bekerja untuk gambar yang tertanam di dalam dokumen (PDF, DOCX, PPTX, XLSX). Untuk file gambar biasa (JPG/PNG), markitdown sudah menghandle via llm_client tanpa plugin.
 
