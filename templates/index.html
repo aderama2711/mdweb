@@ -78,6 +78,7 @@
   .form-input:focus { border-color: var(--accent2); }
   /* native datalist styling */
   #ollama-model { flex: 1; }
+  #model-select { cursor: pointer; }
   .model-row { display: flex; gap: 8px; }
   .probe-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--mono); font-size: 0.72rem; padding: 0 12px; cursor: pointer; white-space: nowrap; transition: border-color var(--transition), color var(--transition); }
   .probe-btn:hover { border-color: var(--accent2); color: var(--accent2); }
@@ -176,11 +177,11 @@
           <div class="form-group">
             <label class="form-label" for="ollama-model">Vision Model</label>
             <div class="model-row">
-              <!-- ponytail: native datalist replaces custom dropdown + JS dismiss handler -->
-              <input class="form-input" id="ollama-model" type="text" value="llava" list="model-list" autocomplete="off">
-              <datalist id="model-list"></datalist>
+              <input class="form-input" id="ollama-model" type="text" value="llava" autocomplete="off">
               <button class="probe-btn" id="probe-btn" type="button">Detect Models</button>
             </div>
+            <!-- populated after probe; hidden until models detected -->
+            <select class="form-input" id="model-select" style="display:none;margin-top:6px;"></select>
           </div>
         </div>
       </div>
@@ -233,7 +234,7 @@ const ocrSettings    = $('ocr-settings');
 const ollamaHost     = $('ollama-host');
 const ollamaModel    = $('ollama-model');
 const probeBtn       = $('probe-btn');
-const modelList      = $('model-list');
+const modelSelect    = $('model-select');
 const resultCount    = $('result-count');
 const toast          = $('toast');
 
@@ -286,7 +287,12 @@ probeBtn.addEventListener('click', async () => {
     const data = await res.json();
     const models = (data.models || []).map(m => m.name);
     if (models.length) {
-      modelList.innerHTML = models.map(m => `<option value="${m}">`).join('');
+      modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+      modelSelect.style.display = '';
+      // sync select → text input so Flask gets the chosen model name
+      modelSelect.value = ollamaModel.value || models[0];
+      ollamaModel.value = modelSelect.value;
+      modelSelect.addEventListener('change', () => ollamaModel.value = modelSelect.value);
       showToast(`${models.length} model ditemukan.`);
     } else {
       showToast('Ollama jalan tapi belum ada model. Coba: ollama pull llava');
