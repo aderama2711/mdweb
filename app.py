@@ -10,13 +10,18 @@ import io
 import uuid
 import zipfile
 import threading
+import json
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, render_template
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
-# ponytail: in-memory dict — single process only. See README for gunicorn note.
+# ponytail: hardcode via env var, bukan input browser — host Ollama ini
+# container-to-container, user browser tidak pernah tahu/perlu tahu nilainya.
+OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://localhost:11434').rstrip('/')
+
+# ponytail: in-memory dict — single process only. Jalankan gunicorn -w 1.
 jobs: dict = {}
 jobs_lock = threading.Lock()
 
@@ -33,14 +38,13 @@ def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def run_conversion_job(job_id: str, file_data_list: list, use_ocr: bool,
-                       ollama_host: str, ollama_model: str):
+def run_conversion_job(job_id: str, file_data_list: list, use_ocr: bool, ollama_model: str):
     from markitdown import MarkItDown
 
     try:
         if use_ocr:
             from openai import OpenAI
-            client = OpenAI(base_url=ollama_host.rstrip('/') + '/v1', api_key='ollama')
+            client = OpenAI(base_url=OLLAMA_HOST + '/v1', api_key='ollama')
             try:
                 md = MarkItDown(llm_client=client, llm_model=ollama_model, enable_plugins=True)
             except TypeError:
@@ -84,7 +88,6 @@ def api_convert():
         return jsonify({'error': 'No files uploaded'}), 400
 
     use_ocr      = request.form.get('use_ocr', 'false').lower() == 'true'
-    ollama_host  = request.form.get('ollama_host', 'http://localhost:11434').strip()
     ollama_model = request.form.get('ollama_model', 'llava').strip()
 
     file_data_list = []
@@ -103,7 +106,7 @@ def api_convert():
                         'current_file': '', 'results': [], 'error': None}
 
     threading.Thread(target=run_conversion_job, daemon=True,
-                     args=(job_id, file_data_list, use_ocr, ollama_host, ollama_model)).start()
+                     args=(job_id, file_data_list, use_ocr, ollama_model)).start()
 
     return jsonify({'job_id': job_id})
 
@@ -167,6 +170,18 @@ def api_results(job_id):
         for i, r in enumerate(job['results'])
     ]})
 
+
+@app.route('/api/ollama/models')
+def api_ollama_models():
+    # ponytail: pakai OLLAMA_HOST server-side, bukan dari query param —
+    # host tidak lagi dikontrol browser.
+    try:
+        import urllib.request
+        with urllib.request.urlopen(OLLAMA_HOST + '/api/tags', timeout=5) as resp:
+            data = json.loads(resp.read())
+        return jsonify({'models': [m['name'] for m in data.get('models', [])], 'ok': True})
+    except Exception as e:
+        return jsonify({'models': [], 'ok': False, 'error': str(e)})
 
 
 if __name__ == '__main__':
