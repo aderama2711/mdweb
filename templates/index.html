@@ -168,11 +168,7 @@
 
         <div class="ocr-settings" id="ocr-settings">
           <div class="ocr-notice">
-            ⚠ Butuh Ollama + vision model. Install: <code>ollama pull llava</code>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="ollama-host">Ollama Host</label>
-            <input class="form-input" id="ollama-host" type="text" value="http://localhost:11434">
+            ⚠ Butuh Ollama + vision model di server. Install: <code>ollama pull llava</code>
           </div>
           <div class="form-group">
             <label class="form-label" for="ollama-model">Vision Model</label>
@@ -231,7 +227,6 @@ const emptyState     = $('empty-state');
 const downloadAllBtn = $('download-all-btn');
 const ocrToggle      = $('ocr-toggle');
 const ocrSettings    = $('ocr-settings');
-const ollamaHost     = $('ollama-host');
 const ollamaModel    = $('ollama-model');
 const probeBtn       = $('probe-btn');
 const modelSelect    = $('model-select');
@@ -280,24 +275,21 @@ ocrToggle.addEventListener('change', () => ocrSettings.classList.toggle('visible
 probeBtn.addEventListener('click', async () => {
   probeBtn.textContent = '…'; probeBtn.disabled = true;
   try {
-    // ponytail: fetch langsung dari browser ke Ollama — bypass Flask agar
-    // localhost di browser (host OS) != localhost di Flask (WSL/container)
-    const host = ollamaHost.value.trim();
-    const res = await fetch(`${host}/api/tags`);
+    // Host di-set server-side (env var), Flask yang proxy ke Ollama
+    const res = await fetch('/api/ollama/models');
     const data = await res.json();
-    const models = (data.models || []).map(m => m.name);
-    if (models.length) {
+    const models = data.models || [];
+    if (data.ok && models.length) {
       modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
       modelSelect.style.display = '';
-      // sync select → text input so Flask gets the chosen model name
       modelSelect.value = ollamaModel.value || models[0];
       ollamaModel.value = modelSelect.value;
       modelSelect.addEventListener('change', () => ollamaModel.value = modelSelect.value);
       showToast(`${models.length} model ditemukan.`);
     } else {
-      showToast('Ollama jalan tapi belum ada model. Coba: ollama pull llava');
+      showToast('Ollama tidak bisa dijangkau dari server: ' + (data.error || 'no models'));
     }
-  } catch { showToast('Tidak bisa reach Ollama di ' + ollamaHost.value.trim()); }
+  } catch { showToast('Error probe Ollama.'); }
   finally { probeBtn.textContent = 'Detect Models'; probeBtn.disabled = false; }
 });
 
@@ -317,7 +309,6 @@ async function startConversion() {
   const fd = new FormData();
   state.files.forEach(f => fd.append('files', f));
   fd.append('use_ocr', ocrToggle.checked ? 'true' : 'false');
-  fd.append('ollama_host', ollamaHost.value.trim());
   fd.append('ollama_model', ollamaModel.value.trim());
 
   let jobId;
