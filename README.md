@@ -6,14 +6,30 @@ Konversi PDF, DOCX, PPTX, XLSX, HTML, gambar, audio, dan lainnya ke Markdown —
 ## Fitur
 
 - **Drag & drop** multi-file upload
+- **Konversi PDF via Marker** — layout-aware, akurat untuk multi-kolom, tabel, dan equation (LaTeX)
+- **Format lain via markitdown** — DOCX, PPTX, XLSX, HTML, dst tetap cepat
 - **Konversi batch** — unduh satu file atau semua sebagai ZIP
 - **Preview inline** per file di UI
-- **OCR via Ollama lokal** (opsional) — ekstrak teks dari gambar dalam dokumen
+- **OCR via Ollama lokal** (opsional, untuk gambar dalam dokumen non-PDF) — ekstrak teks dari gambar menggunakan vision model
 - Tidak ada data yang dikirim ke cloud — semua berjalan lokal
+
+## ⚠ PDF di CPU: Lambat
+
+Marker pakai deep learning model (surya OCR) untuk layout detection. Tanpa GPU NVIDIA:
+
+- **1-5 menit per halaman** — dokumen 20 halaman bisa 20-100 menit
+- Model pertama kali download **2-4GB** (sekali saja, di-cache)
+- Butuh **8GB+ RAM** untuk dokumen besar
+
+Kalau ini terlalu lambat untuk kebutuhanmu, alternatif:
+- Kurangi ke `pymupdf4llm` untuk PDF native/teks-rapi (jauh lebih cepat, kualitas cukup baik untuk PDF tidak kompleks)
+- Jalankan di mesin dengan GPU NVIDIA (turun ke hitungan detik)
+
+Format non-PDF (DOCX, PPTX, XLSX, dst) tetap cepat karena tidak lewat Marker.
 
 ## Format yang Didukung
 
-PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, HTML/HTM, CSV, JSON, XML, TXT,  
+PDF (via Marker), DOCX, DOC, PPTX, PPT, XLSX, XLS, HTML/HTM, CSV, JSON, XML, TXT,  
 JPG/PNG/GIF/BMP/WEBP, MP3/WAV/OGG/M4A, ZIP, EPUB, IPYNB, MSG
 
 ---
