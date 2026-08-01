@@ -279,15 +279,19 @@ ocrToggle.addEventListener('change', () => ocrSettings.classList.toggle('visible
 probeBtn.addEventListener('click', async () => {
   probeBtn.textContent = '…'; probeBtn.disabled = true;
   try {
-    const res = await fetch(`/api/ollama/models?host=${encodeURIComponent(ollamaHost.value.trim())}`);
+    // ponytail: fetch langsung dari browser ke Ollama — bypass Flask agar
+    // localhost di browser (host OS) != localhost di Flask (WSL/container)
+    const host = ollamaHost.value.trim();
+    const res = await fetch(`${host}/api/tags`);
     const data = await res.json();
-    if (data.ok && data.models.length) {
-      // ponytail: populate native <datalist>, no custom dropdown needed
-      modelList.innerHTML = data.models.map(m => `<option value="${m}">`).join('');
+    const models = (data.models || []).map(m => m.name);
+    if (models.length) {
+      modelList.innerHTML = models.map(m => `<option value="${m}">`).join('');
+      showToast(`${models.length} model ditemukan.`);
     } else {
-      showToast('Ollama tidak bisa dijangkau. Pastikan sudah berjalan.');
+      showToast('Ollama jalan tapi belum ada model. Coba: ollama pull llava');
     }
-  } catch { showToast('Error saat probe Ollama.'); }
+  } catch { showToast('Tidak bisa reach Ollama di ' + ollamaHost.value.trim()); }
   finally { probeBtn.textContent = 'Detect Models'; probeBtn.disabled = false; }
 });
 
