@@ -11,15 +11,15 @@ import uuid
 import zipfile
 import threading
 import json
+import tempfile
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, render_template
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
-# ponytail: hardcode via env var, bukan input browser — host Ollama ini
-# container-to-container, user browser tidak pernah tahu/perlu tahu nilainya.
-OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://localhost:11434').rstrip('/')
+# ponytail: ganti langsung di sini kalau host Ollama berubah
+OLLAMA_HOST = 'http://localhost:11434'
 
 # ponytail: in-memory dict — single process only. Jalankan gunicorn -w 1.
 jobs: dict = {}
@@ -33,9 +33,39 @@ ALLOWED_EXTENSIONS = {
     'zip', 'epub', 'ipynb', 'msg',
 }
 
+# Marker model dict — load sekali (mahal: ~2-4GB weights, lambat di CPU).
+# Lazy-load di panggilan pertama, bukan di import time, supaya start server
+# tetap cepat kalau tidak ada request PDF sama sekali.
+_marker_converter = None
+_marker_lock = threading.Lock()
+
+
+def get_marker_converter():
+    global _marker_converter
+    if _marker_converter is None:
+        with _marker_lock:
+            if _marker_converter is None:  # double-checked lock
+                from marker.converters.pdf import PdfConverter
+                from marker.models import create_model_dict
+                _marker_converter = PdfConverter(artifact_dict=create_model_dict())
+    return _marker_converter
+
 
 def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def convert_pdf_with_marker(data: bytes) -> str:
+    # ponytail: Marker butuh path file, bukan stream — tulis ke temp file
+    converter = get_marker_converter()
+    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    try:
+        result = converter(tmp_path)
+        return result.markdown
+    finally:
+        os.unlink(tmp_path)
 
 
 def run_conversion_job(job_id: str, file_data_list: list, use_ocr: bool, ollama_model: str):
@@ -61,11 +91,19 @@ def run_conversion_job(job_id: str, file_data_list: list, use_ocr: bool, ollama_
         with jobs_lock:
             jobs[job_id]['current_file'] = filename
         try:
-            stream = io.BytesIO(data)
-            stream.name = filename
-            result = md.convert_stream(stream)
+            is_pdf = filename.lower().endswith('.pdf')
+            if is_pdf:
+                # PDF → Marker (layout-aware, jauh lebih akurat, tapi lambat di CPU)
+                with jobs_lock:
+                    jobs[job_id]['current_file'] = f'{filename} (Marker, bisa beberapa menit di CPU)'
+                content = convert_pdf_with_marker(data)
+            else:
+                # Format lain → markitdown (cepat, cukup baik utk non-PDF)
+                stream = io.BytesIO(data)
+                stream.name = filename
+                content = md.convert_stream(stream).text_content
             results.append({'filename': Path(filename).stem + '.md',
-                            'original': filename, 'content': result.text_content, 'ok': True})
+                            'original': filename, 'content': content, 'ok': True})
         except Exception as e:
             results.append({'filename': Path(filename).stem + '.md',
                             'original': filename, 'content': '', 'error': str(e), 'ok': False})
@@ -185,6 +223,11 @@ def api_ollama_models():
 
 
 if __name__ == '__main__':
-    # ponytail: use_reloader=False — reloader spawns second process, jobs dict jadi 404.
+    # ponytail: uncomment kalau mau model Marker sudah warm sebelum request
+    # pertama — startup jadi lambat (~1-2 menit download+load), tapi convert
+    # pertama tidak nunggu double.
+    # get_marker_converter()
+
+    # use_reloader=False — reloader spawns second process, jobs dict jadi 404.
     # gunicorn: wajib -w 1 (in-memory state tidak shared antar worker)
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5000)
