@@ -2,3 +2,4 @@ flask>=3.0.0
 markitdown[all]>=0.1.0
 markitdown-ocr>=0.1.0
 openai>=1.0.0
+marker-pdf>=2.0.0
