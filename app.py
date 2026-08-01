@@ -10,7 +10,6 @@ import io
 import uuid
 import zipfile
 import threading
-import json
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, render_template
 
@@ -168,17 +167,6 @@ def api_results(job_id):
         for i, r in enumerate(job['results'])
     ]})
 
-
-@app.route('/api/ollama/models')
-def api_ollama_models():
-    host = request.args.get('host', 'http://localhost:11434').strip()
-    try:
-        import urllib.request
-        with urllib.request.urlopen(host.rstrip('/') + '/api/tags', timeout=3) as resp:
-            models = [m['name'] for m in json.loads(resp.read()).get('models', [])]
-        return jsonify({'models': models, 'ok': True})
-    except Exception as e:
-        return jsonify({'models': [], 'ok': False, 'error': str(e)})
 
 
 if __name__ == '__main__':
